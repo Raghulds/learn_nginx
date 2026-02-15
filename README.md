@@ -1,4 +1,4 @@
-# learning nginx, 
+# traffic experimentation with nginx 
 NGINX, LB
 
 ## About NGINX
@@ -306,3 +306,23 @@ Run lua script with wrk to simulate large request body,
 
 Watch live memory usage with command,
     top -pid WORKER-PROCESS-ID
+
+
+# Takeaways
+Slow downstream → Resource occupancy increases → Upstream overload
+Place backpressure at the edge; Decide when to reject traffic
+Always retry for idempotent ops only when failure is transient with jitter + exp backoff and with a global retry budget 
+
+Is latency rising?
+    |
+    ├── Yes → Is traffic spike?
+    |       ├── Yes → Rate limit / autoscale
+    |       └── No → Backend slow
+    |               ├── Disable retries
+    |               ├── Lower timeout
+    |               └── Enable breaker
+    |
+    └── No → Errors high?
+            ├── Yes → Backend unhealthy → fail fast
+            └── No → Likely resource saturation
+
