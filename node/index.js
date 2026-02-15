@@ -23,6 +23,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.url === "/fast") {
+        await new Promise(r => setTimeout(r, 500));
+
+    res.statusCode = 200;
+    res.end("ok");
+    return;
+  }
+
   if (req.url !== "/ping") {
     res.statusCode = 404;
     res.end();

@@ -1,6 +1,12 @@
 
 ### Retries
 NGINX retries are failover retries, not replays
+Retries are meant to handle transient failures:
+* brief network blips
+* momentary overload
+* pod restarts
+* GC pauses
+* cold starts
 
 #### nginx setup
 proxy_next_upstream
@@ -49,7 +55,7 @@ amplification = 2×
 * inflates latency
 * does NOT create new failures by itself
 
-### Retry Storm
+### Retry Storm (self DDOS)
 
 Each request internally,
 Go times out (1s)
@@ -87,3 +93,32 @@ NGINX doesn't
 * Rolling error rates
 * Smart budgets
 * Adaptive backoff
+
+#### Rate limit (cap traffic) X Retries (increase traffic)
+
+Naive retry -> Retry storm/Self DDOS
+
+##### Smart retry 
+- Client gets 429
+- Reads Retry-After header
+- Applies backoff + jitter
+- Retry volume is smaller and spread out
+- System stabilizes instead of collapsing
+
+| Signal        | Meaning                 | Retry Action                       |
+| ------------- | ----------------------- | ---------------------------------- |
+| `429`         | You’re sending too fast | Retry **later**, not immediately   |
+| `503`         | Server overloaded       | Retry with **exponential backoff** |
+| Timeout       | Maybe transient         | Retry with limit                   |
+| `4xx` (other) | Client error            | **Never retry**                    |
+
+In NGINX, rate limit controls ingress pressure and retries controls egress pressure
+
+Upstream Retry considered as a new request. They consume rate limit budget
+
+* Retry budget - Only X% of traffic is allowed to be retries
+* Backoff + jitter is mandatory
+* Rate-limit aware retries
+
+Retries and rate limits are tightly coupled.
+Rate limits protect the system, but retries can bypass that protection unless we enforce retry budgets, backoff, and 429-aware behavior. Otherwise retries turn partial failures into full outages
